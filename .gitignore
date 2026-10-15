@@ -1,0 +1,46 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Attendance Log (runtime generated)
+attendance.csv
+
+# Keep directory structure tracked but ignore raw generated files if needed
+# (Uncomment below if you do not want to push student face images to git)
+# dataset/*
+# !dataset/.gitkeep
+# models/*
+# !models/.gitkeep
