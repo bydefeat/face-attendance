@@ -1,21 +1,22 @@
-"""Cau 1. PARAMETRIC vs NON-PARAMETRIC.
-
-So tham so cua mo hinh tham so (Logistic Regression) co dinh, con mo hinh phi tham so
-(KNN, Decision Tree) tang theo so mau huan luyen.
-Chay: python reports/code/cau1_parametric.py
-"""
+# Câu 1: so sánh mô hình tham số và phi tham số
+# Tăng dần số mẫu train rồi xem mỗi mô hình phải giữ lại bao nhiêu thứ
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
-print(f"{'n_train':>8} | {'LogReg (#tham so)':>18} | {'KNN (#so luu)':>14} | {'Tree (#node)':>12}")
 for n in [100, 1000, 10000]:
     X, y = make_classification(n_samples=n, n_features=5, random_state=0)
-    lr = LogisticRegression().fit(X, y)
+
+    logreg = LogisticRegression().fit(X, y)
     knn = KNeighborsClassifier(n_neighbors=5).fit(X, y)
     tree = DecisionTreeClassifier(random_state=0).fit(X, y)
-    n_lr = lr.coef_.size + lr.intercept_.size     # luon = d + 1, khong doi theo n
-    n_knn = knn._fit_X.size                        # KNN "nho" toan bo tap train
-    print(f"{n:>8} | {n_lr:>18} | {n_knn:>14} | {tree.tree_.node_count:>12}")
-    assert n_lr == 6 and n_knn == n * 5
+
+    # logistic chỉ có 5 hệ số + 1 bias, dữ liệu nhiều hay ít cũng vậy
+    so_tham_so = logreg.coef_.size + logreg.intercept_.size
+
+    print(f"n = {n}")
+    print("  Logistic Regression:", so_tham_so, "tham số")
+    # knn không học gì, nó giữ nguyên tập train để lúc dự đoán tính khoảng cách
+    print("  KNN giữ lại:", knn.n_samples_fit_, "mẫu")
+    print("  Cây quyết định:", tree.tree_.node_count, "nút")

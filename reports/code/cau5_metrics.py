@@ -1,10 +1,5 @@
-"""Cau 5. CAC DO DO HIEU SUAT: ACC, Precision, Recall/Sensitivity, Specificity, F1, ROC, AUC.
-
-Vi du u ac tinh (slide 20, ML-04) + ROC/AUC cua 3 mo hinh.
-Chay: python reports/code/cau5_metrics.py [roc.png]   (tham so tuy chon: luu do thi ROC)
-"""
-import sys
-
+# Câu 5: các độ đo đánh giá mô hình phân loại
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
@@ -14,63 +9,61 @@ from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 
+# ----- ví dụ u ác tính trong slide: 100 người, 9 người u ác tính -----
+TP, FP, TN, FN = 1, 1, 90, 8
 
-def metrics_from_cm(tp, fp, tn, fn):
-    acc = (tp + tn) / (tp + tn + fp + fn)
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)                 # = sensitivity = TPR
-    specificity = tn / (tn + fp)            # = TNR = 1 - FPR
-    f1 = 2 * precision * recall / (precision + recall)
-    return dict(acc=acc, precision=precision, recall=recall, specificity=specificity, f1=f1)
+accuracy = (TP + TN) / (TP + TN + FP + FN)
+precision = TP / (TP + FP)
+recall = TP / (TP + FN)            # còn gọi là sensitivity hay TPR
+specificity = TN / (TN + FP)
+f1 = 2 * precision * recall / (precision + recall)
 
+print("Tự tính:")
+print(f"  accuracy = {accuracy:.2f}, precision = {precision:.2f}, recall = {recall:.2f}, "
+      f"specificity = {specificity:.2f}, F1 = {f1:.2f}")
 
-def auc_trapezoid(fpr, tpr):
-    return float(np.sum(np.diff(fpr) * (tpr[1:] + tpr[:-1]) / 2))
+# dựng lại nhãn rồi kiểm tra bằng sklearn
+y_that = np.array([1] * 9 + [0] * 91)
+y_doan = np.array([1] + [0] * 8 + [1] + [0] * 90)
+print("sklearn:")
+print("  tn, fp, fn, tp =", confusion_matrix(y_that, y_doan).ravel())
+print(f"  accuracy = {accuracy_score(y_that, y_doan):.2f}, "
+      f"precision = {precision_score(y_that, y_doan):.2f}, "
+      f"recall = {recall_score(y_that, y_doan):.2f}, "
+      f"specificity = {recall_score(y_that, y_doan, pos_label=0):.2f}, "
+      f"F1 = {f1_score(y_that, y_doan):.2f}")
 
-
-# Vi du u ac tinh (slide 20)
-m = metrics_from_cm(tp=1, fp=1, tn=90, fn=8)
-print({k: round(v, 3) for k, v in m.items()})
-assert round(m["acc"], 2) == 0.91 and m["precision"] == 0.5 and round(m["recall"], 2) == 0.11
-
-# Doi chieu voi sklearn
-y_true = np.array([1] * 9 + [0] * 91)
-y_pred = np.array([1] + [0] * 8 + [1] + [0] * 90)
-tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-assert (tp, fp, tn, fn) == (1, 1, 90, 8)
-assert np.isclose(f1_score(y_true, y_pred), m["f1"])
-assert np.isclose(precision_score(y_true, y_pred), m["precision"])
-assert np.isclose(recall_score(y_true, y_pred), m["recall"])
-assert np.isclose(recall_score(y_true, y_pred, pos_label=0), m["specificity"])
-
-# ROC & AUC tren mo hinh that
+# ----- ROC và AUC trên dữ liệu lệch lớp (khoảng 80% là lớp 0) -----
 X, y = make_classification(n_samples=1000, n_features=10, weights=[0.8], random_state=3)
-Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
-models = {"LogReg": LogisticRegression(max_iter=1000), "GaussianNB": GaussianNB(),
-          "KNN(k=5)": KNeighborsClassifier()}
-curves = {}
-for name, mdl in models.items():
-    score = mdl.fit(Xtr, ytr).predict_proba(Xte)[:, 1]
-    fpr, tpr, _ = roc_curve(yte, score)
-    auc = roc_auc_score(yte, score)
-    assert np.isclose(auc, auc_trapezoid(fpr, tpr))
-    curves[name] = (fpr, tpr, auc)
-    yh = (score >= 0.5).astype(int)
-    print(f"{name:<10} ACC={accuracy_score(yte, yh):.3f} P={precision_score(yte, yh):.3f} "
-          f"R={recall_score(yte, yh):.3f} Spec={recall_score(yte, yh, pos_label=0):.3f} "
-          f"F1={f1_score(yte, yh):.3f} AUC={auc:.3f}")
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
 
-if len(sys.argv) > 1:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(5, 4.5))
-    for name, (fpr, tpr, auc) in curves.items():
-        ax.plot(fpr, tpr, label=f"{name} (AUC={auc:.3f})")
-    ax.plot([0, 1], [0, 1], "--", color="gray", label="Ngau nhien (AUC=0.5)")
-    ax.set_xlabel("FPR = 1 - Specificity")
-    ax.set_ylabel("TPR = Recall / Sensitivity")
-    ax.set_title("Duong cong ROC")
-    ax.legend(loc="lower right")
-    fig.tight_layout()
-    fig.savefig(sys.argv[1], dpi=150)
+cac_model = {
+    "Logistic Regression": LogisticRegression(max_iter=1000),
+    "Gaussian NB": GaussianNB(),
+    "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
+}
+
+plt.figure(figsize=(6, 5))
+for ten, model in cac_model.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    diem = model.predict_proba(X_test)[:, 1]
+    fpr, tpr, _ = roc_curve(y_test, diem)
+    auc = roc_auc_score(y_test, diem)
+
+    print(f"\n{ten}")
+    print(f"  acc = {accuracy_score(y_test, y_pred):.3f}, precision = {precision_score(y_test, y_pred):.3f}, "
+          f"recall = {recall_score(y_test, y_pred):.3f}, "
+          f"specificity = {recall_score(y_test, y_pred, pos_label=0):.3f}, "
+          f"F1 = {f1_score(y_test, y_pred):.3f}")
+    # AUC đúng nghĩa là diện tích dưới đường ROC, tính tay bằng hình thang cũng ra y vậy
+    print(f"  AUC = {auc:.3f} (tính bằng hình thang: {np.trapezoid(tpr, fpr):.3f})")
+    plt.plot(fpr, tpr, label=f"{ten} (AUC = {auc:.3f})")
+
+plt.plot([0, 1], [0, 1], "k--", label="Đoán bừa (AUC = 0.5)")
+plt.xlabel("FPR = 1 - specificity")
+plt.ylabel("TPR = recall")
+plt.title("Đường ROC")
+plt.legend()
+plt.savefig("roc.png", dpi=150)
+plt.show()

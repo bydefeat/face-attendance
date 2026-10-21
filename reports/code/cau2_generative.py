@@ -1,40 +1,44 @@
-"""Cau 2. GENERATIVE sinh duoc du lieu moi, DISCRIMINATIVE thi khong.
-
-Vi du Cat & Dog 2x2 trong slide 13-15 (ML-04-CLASSIFICATION).
-Chay: python reports/code/cau2_generative.py
-"""
+# Câu 2: vì sao mô hình generative sinh được dữ liệu mới còn discriminative thì không
+# Dùng lại ví dụ ảnh chó 2x2 trong slide: 4 pixel, nửa trên sáng, nửa dưới tối
 import numpy as np
 from sklearn.datasets import make_classification
-from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 
-rng = np.random.default_rng(0)
+anh_cho = np.array([[200, 200, 50, 50],
+                    [210, 190, 40, 60]])
 
-X_dog = np.array([[200, 200, 50, 50],
-                  [210, 190, 40, 60]], dtype=float)
+# ----- generative -----
+# coi mỗi pixel có phân phối chuẩn, chỉ cần học trung bình và độ lệch chuẩn
+mu = anh_cho.mean(axis=0)
+sigma = anh_cho.std(axis=0)
+print("mu    =", mu)
+print("sigma =", sigma)
 
-# Generative: hoc P(X | Dog) ~ N(mu, sigma^2) cho tung pixel
-mu, sigma = X_dog.mean(axis=0), X_dog.std(axis=0)
-z = np.array([0.8, -1.2, 0.4, 0.2])                # z ~ N(0,1) nhu slide
-x_new = mu + sigma * z
-print("mu =", mu, " sigma =", sigma)
-print("Anh cho moi sinh ra:", x_new.round())       # [209 189 47 56]
-assert np.allclose(x_new.round(), [209, 189, 47, 56])
+# lấy z giống slide cho ra đúng số, muốn ảnh khác thì thay bằng np.random.randn(4)
+z = np.array([0.8, -1.2, 0.4, 0.2])
+anh_moi = mu + sigma * z
+print("ảnh chó mới sinh ra:", anh_moi.round())   # slide: 209 189 47 56
 
-# Discriminative (Logistic Regression): chi co ranh gioi w.x + b
-w, b = np.array([-1, -1, 1, 1]), 0
-sigmoid = lambda t: 1 / (1 + np.exp(-t))
-for x in ([0, 0, 255, 255], [-100, -100, 0, 0]):
-    x = np.asarray(x, float)
-    print(f"x={x}  w.x+b={w @ x + b:>6.0f}  P(Dog|x)={sigmoid(w @ x + b):.3f}")
-# Ca 2 anh vo nghia deu duoc goi la "Dog": w chi cho biet x nam ben nao cua ranh gioi,
-# khong cho biet P(x) nen khong co gi de lay mau.
+# ----- discriminative (logistic regression) -----
+# giả sử train xong được w = [-1, -1, 1, 1], b = 0 như slide
+w = np.array([-1, -1, 1, 1])
+b = 0
 
-# Voi sklearn: GaussianNB (generative) luu theta_, var_ -> lay mau duoc
+
+def p_dog(x):
+    return 1 / (1 + np.exp(-(np.dot(w, x) + b)))
+
+
+# mô hình chỉ biết "w.x + b > 0 là chó", nên ảnh vô lý cỡ nào cũng được tính là chó
+# miễn x3 + x4 > x1 + x2
+for x in [[0, 0, 255, 255], [-100, -100, 0, 0]]:
+    print(x, "-> P(chó) =", round(p_dog(x), 3))
+
+# ----- thử với sklearn -----
+# GaussianNB lưu sẵn trung bình (theta_) và phương sai (var_) của từng lớp,
+# lấy mẫu từ đó là có dữ liệu mới. LogisticRegression chỉ có coef_ nên không làm được.
 X, y = make_classification(n_samples=500, n_features=4, n_informative=4,
                            n_redundant=0, random_state=1)
 nb = GaussianNB().fit(X, y)
-fake = rng.normal(nb.theta_[1], np.sqrt(nb.var_[1]), size=(5, 4))
-print("GaussianNB sinh 5 mau lop 1 ->", nb.predict(fake))
-lr = LogisticRegression().fit(X, y)
-print("LogReg chi co coef_ =", lr.coef_.round(2), "-> khong co phan bo de lay mau")
+mau_moi = np.random.default_rng(0).normal(nb.theta_[1], np.sqrt(nb.var_[1]), size=(5, 4))
+print("5 mẫu sinh từ lớp 1, model đoán là:", nb.predict(mau_moi))

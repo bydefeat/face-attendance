@@ -1,48 +1,46 @@
-"""Cau 3. LOGISTIC REGRESSION: hoi quy tren log-odds, dung de phan loai.
-
-Tu cai Newton-Raphson / IRLS (slide 24-26, ML-03) va doi chieu voi sklearn.
-Chay: python reports/code/cau3_logistic.py
-"""
+# Câu 3: logistic regression, phần "hồi quy" và phần "phân loại"
 import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
 
 
-def sigmoid(t):
-    return 1 / (1 + np.exp(-t))
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
 
 
-def logistic_newton_raphson(X, y, n_iter=25):
-    """Uoc luong beta bang Newton-Raphson / IRLS."""
-    X1 = np.c_[np.ones(len(X)), X]
-    beta = np.zeros(X1.shape[1])
-    for _ in range(n_iter):
-        p = sigmoid(X1 @ beta)
-        W = p * (1 - p)
-        grad = X1.T @ (y - p)                    # score vector
-        H = -(X1.T * W) @ X1                     # Hessian
-        beta = beta - np.linalg.solve(H, grad)
+def train_newton_raphson(X, y, so_vong=25):
+    # thêm cột toàn số 1 cho beta0
+    X = np.column_stack([np.ones(len(X)), X])
+    beta = np.zeros(X.shape[1])
+    for _ in range(so_vong):
+        p = sigmoid(X @ beta)
+        gradient = X.T @ (y - p)
+        W = np.diag(p * (1 - p))
+        hessian = -X.T @ W @ X
+        beta = beta - np.linalg.inv(hessian) @ gradient
     return beta
 
 
 X, y = make_classification(n_samples=400, n_features=2, n_redundant=0, random_state=2)
-beta = logistic_newton_raphson(X, y)
-sk = LogisticRegression(C=1e10, max_iter=1000).fit(X, y)   # C lon = gan nhu khong regularize
-print("beta Newton-Raphson:", beta.round(4))
-print("beta sklearn       :", np.r_[sk.intercept_, sk.coef_[0]].round(4))
-assert np.allclose(beta, np.r_[sk.intercept_, sk.coef_[0]], atol=1e-3)
 
-# Phan "hoi quy": log-odds la ham TUYEN TINH cua x
-p = sk.predict_proba(X)[:, 1]
+beta = train_newton_raphson(X, y)
+# để C thật lớn cho sklearn gần như không regularize, so sánh mới công bằng
+model = LogisticRegression(C=1e10, max_iter=1000).fit(X, y)
+print("beta tự tính:", beta.round(3))
+print("beta sklearn:", np.round([model.intercept_[0], *model.coef_[0]], 3))
+
+# phần hồi quy: log-odds là hàm tuyến tính của x
+p = model.predict_proba(X)[:, 1]
 log_odds = np.log(p / (1 - p))
-print("log(p/(1-p)) == b0 + b.x ?", np.allclose(log_odds, sk.decision_function(X)))
-# Phan "phan loai": dat nguong 0.5 len xac suat p
-y_hat = (p >= 0.5).astype(int)
-assert (y_hat == sk.predict(X)).all()
-print("Accuracy:", accuracy_score(y, y_hat))
+tuyen_tinh = model.intercept_[0] + X @ model.coef_[0]
+print("log(p/(1-p)) có bằng b0 + b.x không?", np.allclose(log_odds, tuyen_tinh))
 
-# Odds ratio vi du hut thuoc / ung thu (slide 16)
-odds_ratio = (647 / 2) / (622 / 27)
-print(f"Odds ratio smoking = {odds_ratio:.1f}")
-assert round(odds_ratio, 1) == 14.0
+# phần phân loại: cắt ngưỡng 0.5
+y_du_doan = (p >= 0.5).astype(int)
+print("cắt ngưỡng 0.5 có giống model.predict() không?", (y_du_doan == model.predict(X)).all())
+print("accuracy:", (y_du_doan == y).mean())
+
+# odds ratio, ví dụ hút thuốc với ung thư trong slide
+odds_ung_thu = 647 / 2
+odds_khong_ung_thu = 622 / 27
+print("odds ratio:", round(odds_ung_thu / odds_khong_ung_thu, 1))   # slide làm tròn ra 14.1
